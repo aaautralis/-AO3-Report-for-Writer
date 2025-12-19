@@ -486,15 +486,16 @@ def main():
                 kudos_user_to_titles[u.strip()].add(title)
 
 
-    # 5.2 Comments 榜：优先 comments_tree
-    comment_user_to_titles: Dict[str, Set[str]] = defaultdict(set)
+
+
+    # 5.2 修改后Comments 榜：统计“总评论数”以及“涉及的作品”
+    comment_user_counts = Counter() # 统计总评论次数
+    comment_user_to_titles: Dict[str, Set[str]] = defaultdict(set) # 统计读过哪些文
+    
     for w in works:
         wt = w.get("work_type")
-
-        if wt == "Unrevealed" and not include_hidden:
-            continue
-        if wt == "Anonymous" and not include_anon:
-            continue
+        if wt == "Unrevealed" and not include_hidden: continue
+        if wt == "Anonymous" and not include_anon: continue
 
         title = w.get("title", "（无标题）")
         tree = w.get("comments_tree")
@@ -502,7 +503,9 @@ def main():
 
         for a in authors:
             if a and a not in ("Guest", username):
-                comment_user_to_titles[a].add(title)
+                comment_user_counts[a] += 1  # ✅ 这里累计总数，不会被去重
+                comment_user_to_titles[a].add(title) # 这里记录文名，用于展示
+
 
 
     out("\n\n【现在开始播放：《爱我的人 谢谢你》-薛之谦】")
@@ -523,21 +526,27 @@ def main():
     else:
         out("\n啊哦，出了点小问题……点赞榜暂时无法生成。")
     
-    wait_next("COMMENT英雄榜")
-    clear_screen()
 
-    if comment_user_to_titles:
-        top_comments = sorted(comment_user_to_titles.items(), key=lambda x: len(x[1]), reverse=True)[:5]
+
+
+        # 修改排名逻辑：按 comment_user_counts 排序
+    if comment_user_counts:
+        wait_next("COMMENT英雄榜")
+        clear_screen()
+        top_comments = sorted(comment_user_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         out("\n\n最常在你评论区出现的人：")
-        for user, titles in top_comments:
-            titles_list = sorted(list(titles))
-            out(f"\n- {user}（带来了 {len(titles)} 个大评论！么么哒！）")
+        for user, count in top_comments:
+            titles_list = sorted(list(comment_user_to_titles[user]))
+            # 修改文案，区分“评论数”和“作品数”
+            out(f"\n- {user}带来了 {count} 个大评论，么么哒！")
             out(format_titles_multiline(titles_list, indent="    · ", max_lines=6))
     else:
         out("\n\n啊哦，出了点小问题……评论榜暂时无法生成。")
         out("（抓不到，根本抓不到！我的代码又崩溃了！）")
     wait_next("你 的 世 界")
     clear_screen()
+
+
 
     # 模块 6：题材与标签倾向（fandom / relationship / freeform）
     fandom_counts = Counter()
